@@ -20,6 +20,7 @@
   "homepage": "https://github.com/trcya/toko-buku-backend#readme",
   "dependencies": {
     "cors": "^2.8.6",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "pg": "^8.17.2"
   }
 }
