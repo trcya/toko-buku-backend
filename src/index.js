@@ -4,8 +4,14 @@ const cors = require('cors');
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// --- UPDATE MIDDLEWARE CORS ---
+// Ini akan memberikan izin kepada domain frontend kamu untuk mengakses API
+app.use(cors({
+  origin: '*', // Mengizinkan semua origin agar lebih fleksibel
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
 // --- KONFIGURASI DATABASE CLOUD (NEON.TECH) ---
@@ -16,7 +22,7 @@ const pool = new Pool({
   }
 });
 
-// Test koneksi database saat startup
+// Test koneksi database
 pool.query('SELECT NOW()', (err, res) => {
   if (err) {
     console.error('❌ Database gagal terhubung:', err.message);
@@ -25,7 +31,7 @@ pool.query('SELECT NOW()', (err, res) => {
   }
 });
 
-// Route Utama (Landing Page API)
+// Route Utama
 app.get('/', (req, res) => {
   res.status(200).send('API Toko Buku Berhasil Berjalan! 🚀');
 });
@@ -91,5 +97,5 @@ module.exports = app;
 // Jalankan server jika di Local
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => console.log(`🚀 Server berjalan di http://localhost:${PORT}`));
+  app.listen(PORT, () => console.log(`🚀 Server berjalan di port ${PORT}`));
 }
