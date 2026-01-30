@@ -4,31 +4,33 @@ const cors = require('cors');
 
 const app = express();
 
-// --- UPDATE MIDDLEWARE CORS ---
-// Ini akan memberikan izin kepada domain frontend kamu untuk mengakses API
+// 1. Middleware CORS Standar
 app.use(cors({
-  origin: '*', // Mengizinkan semua origin agar lebih fleksibel
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.use(express.json());
-
-// --- KONFIGURASI DATABASE CLOUD (NEON.TECH) ---
-const pool = new Pool({
-  connectionString: 'postgresql://neondb_owner:npg_Zbz9aUuiM5fX@ep-jolly-forest-a12pk4ce-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require',
-  ssl: {
-    rejectUnauthorized: false
+// 2. Hardcoded Headers (TAMBAHAN UNTUK VERCEL)
+// Ini memaksa header keluar meskipun ada masalah di preflight request
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  
+  // Tangani metode OPTIONS (Preflight) secara langsung
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
   }
+  next();
 });
 
-// Test koneksi database
-pool.query('SELECT NOW()', (err, res) => {
-  if (err) {
-    console.error('❌ Database gagal terhubung:', err.message);
-  } else {
-    console.log('✅ Database Neon terhubung!');
-  }
+app.use(express.json());
+
+// --- KONFIGURASI DATABASE ---
+const pool = new Pool({
+  connectionString: 'postgresql://neondb_owner:npg_Zbz9aUuiM5fX@ep-jolly-forest-a12pk4ce-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require',
+  ssl: { rejectUnauthorized: false }
 });
 
 // Route Utama
@@ -36,22 +38,19 @@ app.get('/', (req, res) => {
   res.status(200).send('API Toko Buku Berhasil Berjalan! 🚀');
 });
 
-// [READ] Ambil semua buku
+// [READ]
 app.get('/buku', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM buku ORDER BY judul ASC');
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: "Gagal mengambil data: " + err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// [CREATE] Tambah buku
+// [CREATE]
 app.post('/buku', async (req, res) => {
   const { judul, penulis } = req.body;
-  if (!judul || !penulis) {
-    return res.status(400).json({ error: "Judul dan Penulis wajib diisi!" });
-  }
   try {
     const result = await pool.query(
       'INSERT INTO buku (judul, penulis) VALUES ($1, $2) RETURNING *',
@@ -59,43 +58,35 @@ app.post('/buku', async (req, res) => {
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({ error: "Gagal menambah data: " + err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// [UPDATE] Edit buku
+// [UPDATE]
 app.put('/buku/:id', async (req, res) => {
   const { id } = req.params;
   const { judul, penulis } = req.body;
   try {
-    const result = await pool.query(
-      'UPDATE buku SET judul = $1, penulis = $2 WHERE id = $3',
-      [judul, penulis, id]
-    );
-    if (result.rowCount === 0) return res.status(404).json({ message: "Buku tidak ditemukan" });
+    await pool.query('UPDATE buku SET judul = $1, penulis = $2 WHERE id = $3', [judul, penulis, id]);
     res.json({ message: "Berhasil diperbarui" });
   } catch (err) {
-    res.status(500).json({ error: "Gagal update data: " + err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// [DELETE] Hapus buku
+// [DELETE]
 app.delete('/buku/:id', async (req, res) => {
-  const { id } = req.params;
   try {
-    const result = await pool.query('DELETE FROM buku WHERE id = $1', [id]);
-    if (result.rowCount === 0) return res.status(404).json({ message: "Data tidak ditemukan" });
+    await pool.query('DELETE FROM buku WHERE id = $1', [req.params.id]);
     res.json({ message: "Berhasil dihapus" });
   } catch (err) {
-    res.status(500).json({ error: "Gagal menghapus data: " + err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Export untuk Vercel
 module.exports = app;
 
-// Jalankan server jika di Local
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => console.log(`🚀 Server berjalan di port ${PORT}`));
+  app.listen(PORT, () => console.log(`🚀 Server on port ${PORT}`));
 }
